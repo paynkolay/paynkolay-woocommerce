@@ -1,25 +1,25 @@
 services:
-  wordpress:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    ports:
-      - "8888:80"
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-      WORDPRESS_DEBUG: "1"
-    volumes:
-      - .:/var/www/html/wp-content/plugins/paynkolay-woocommerce
-    depends_on:
-      - db
+    wordpress:
+        build:
+            context: .
+            dockerfile: docker/Dockerfile
+        ports:
+            - '8888:80'
+        environment:
+            WORDPRESS_DB_HOST: db
+            WORDPRESS_DB_USER: wordpress
+            WORDPRESS_DB_PASSWORD: wordpress
+            WORDPRESS_DB_NAME: wordpress
+            WORDPRESS_DEBUG: '1'
+        volumes:
+            - .:/var/www/html/wp-content/plugins/paynkolay-woocommerce
+        depends_on:
+            - db
 
-  db:
-    image: mariadb:11
-    environment:
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
-      MYSQL_ROOT_PASSWORD: root
+    db:
+        image: mariadb:11
+        environment:
+            MYSQL_DATABASE: wordpress
+            MYSQL_USER: wordpress
+            MYSQL_PASSWORD: wordpress
+            MYSQL_ROOT_PASSWORD: root
