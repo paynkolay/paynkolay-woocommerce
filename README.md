@@ -41,6 +41,8 @@ PayNKolay sanal POS ile WooCommerce mağazanızda kredi kartı ile 3D Secure des
 
 ```bash
 git clone https://github.com/paynkolay/paynkolay-woocommerce.git
+cd paynkolay-woocommerce
+npm install   # optional, only needed for JS development
 ```
 
 Copy or symlink the plugin directory into `wp-content/plugins/`.
@@ -61,31 +63,43 @@ Copy or symlink the plugin directory into `wp-content/plugins/`.
 
 When test mode is enabled, transactions are processed through the PayNKolay test environment (`paynkolaytest.nkolayislem.com.tr`). No real charges are made.
 
-The plugin comes with test credentials prefilled. Just enable test mode and start testing.
+You can obtain test credentials from your PayNKolay merchant dashboard.
 
 ## Development
 
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 18+
+- [Composer](https://getcomposer.org/) (for PHP dev dependencies)
+- [Docker](https://www.docker.com/) (optional, for `wp-env`)
+
 ### Local Development Environment
 
-Requires [Docker](https://www.docker.com/).
-
 ```bash
-docker compose up
-```
+# Start a local WordPress environment with WooCommerce
+npx wp-env start
 
-This starts WordPress + WooCommerce + the plugin at `http://localhost:8888` (admin/password). Test products and Turkish Lira currency are preconfigured.
+# Watch for JS changes and rebuild
+npm run start
+
+# Build for production
+npm run build
+
+# Create a distributable zip
+npm run plugin-zip
+```
 
 ### Project Structure
 
 ```
 paynkolay-woocommerce/
-├── assets/js/frontend/     # WooCommerce Blocks JS
+├── assets/js/frontend/     # Built JS (checked in for distribution)
 ├── includes/               # PHP classes
 │   ├── blocks/             # WooCommerce Blocks integration
 │   └── class-wc-gateway-paynkolay.php
-├── views/                  # Payment form templates
 ├── languages/              # Translation files
-├── docker/                 # Docker setup for local dev
+├── src/js/frontend/        # JS source files
+├── views/                  # Payment form templates
 ├── tests/                  # PHPUnit tests
 └── woocommerce-gateway-paynkolay.php  # Main plugin file
 ```
