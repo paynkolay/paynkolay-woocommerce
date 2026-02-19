@@ -5,7 +5,7 @@ const path = require( 'path' );
 module.exports = {
 	...defaultConfig,
 	entry: {
-		'blocks': path.resolve( __dirname, 'src/js/frontend/blocks.js' ),
+		blocks: path.resolve( __dirname, 'src/js/frontend/blocks.js' ),
 	},
 	output: {
 		path: path.resolve( __dirname, 'assets/js/frontend' ),
