@@ -134,12 +134,14 @@ class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 			'token'       => array(
 				'title'       => __( 'Token (SX)', 'woocommerce-gateway-paynkolay' ),
 				'type'        => 'text',
-				'description' => __( 'PayNKolay yönetim panelinden alacağınız Token (SX Değeri) bilgisini bu alana girebilirsiniz.', 'woocommerce-gateway-paynkolay' ),
+				'description' => __( 'PayNKolay yönetim panelinden alacağınız Token (SX Değeri) bilgisini bu alana girebilirsiniz. Test modu için varsayılan değer önceden doldurulmuştur.', 'woocommerce-gateway-paynkolay' ),
+				'default'     => '118591467|bScbGDYCtPf7SS1N6PQ6/+58rFhW1WpsWINqvkJFaJlu6bMH2tgPKDQtjeA5vClpzJP24uA0vx7OX53cP3SgUspa4EvYix+1C3aXe++8glUvu9Oyyj3v300p5NP7ro/9K57Zcw==',
 			),
 			'merchant_secret_key' => array(
 				'title'       => __( 'Merchant Secret Key', 'woocommerce-gateway-paynkolay' ),
 				'type'        => 'text',
-				'description' => __( 'PayNKolay yönetim panelinden alacağınız Merchant Secret Key bilgisini bu alana girebilirsiniz.', 'woocommerce-gateway-paynkolay' ),
+				'description' => __( 'PayNKolay yönetim panelinden alacağınız Merchant Secret Key bilgisini bu alana girebilirsiniz. Test modu için varsayılan değer önceden doldurulmuştur.', 'woocommerce-gateway-paynkolay' ),
+				'default'     => '_YckdxUbv4vrnMUZ6VQsr',
 			),
 		);
 	}
