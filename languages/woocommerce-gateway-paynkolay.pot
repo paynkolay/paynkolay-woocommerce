@@ -1,0 +1,107 @@
+# Copyright (C) 2024 PayNKolay
+# This file is distributed under the MIT License.
+msgid ""
+msgstr ""
+"Project-Id-Version: PayNKolay for WooCommerce 1.0.8\n"
+"Report-Msgid-Bugs-To: https://github.com/paynkolay/paynkolay-woocommerce/issues\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2024-01-01T00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Domain: woocommerce-gateway-paynkolay\n"
+
+#. Plugin Name of the plugin
+msgid "PayNKolay for WooCommerce"
+msgstr ""
+
+#. Description of the plugin
+msgid "PayNKolay sanal POS ile WooCommerce ödeme entegrasyonu."
+msgstr ""
+
+#. Author of the plugin
+msgid "PayNKolay"
+msgstr ""
+
+#: woocommerce-gateway-paynkolay.php
+msgid "Ödeme işlemi başarısız oldu. Lütfen tekrar deneyin."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgctxt "Paynkolay payment method"
+msgid "Pay N Kolay"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Ödemenizi PayNKolay ile güvenli bir şekilde yapabilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Aktif/Pasif"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Ödeme yöntemini aktifleştir."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Başlık"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Ödeme sayfasındaki başlığı bu alandan değiştirebilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Kredi Kartı ile Öde"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Açıklama"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Ödeme sayfasındaki açıklamayı bu alandan değiştirebilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "PayNKolay ile güvenli bir şekilde ödeme yapabilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Test Modu"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Test modunu aktifleştir."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Test modunu aktifleştirerek test kartları ile ödeme yapabilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Token (SX)"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "PayNKolay yönetim panelinden alacağınız Token (SX Değeri) bilgisini bu alana girebilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Merchant Secret Key"
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "PayNKolay yönetim panelinden alacağınız Merchant Secret Key bilgisini bu alana girebilirsiniz."
+msgstr ""
+
+#: includes/class-wc-gateway-paynkolay.php
+msgid "Ödeme başarısız oldu. Lütfen ödeme ayarlarını kontrol ediniz."
+msgstr ""
+
+#: views/iframe.php
+msgid "Ödeme işlemine devam et"
+msgstr ""
