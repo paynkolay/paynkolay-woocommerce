@@ -14,14 +14,16 @@
       makePkgs = system: import nixpkgs { inherit system; };
     in
     {
-    devShells.default = forAllSystems (system: let
+    devShells = forAllSystems (system: let
       pkgs = makePkgs system;
-    in pkgs.mkShell {
-      buildInputs = [
-        pkgs.php
-        pkgs.composer
-        pkgs.nodejs
-      ];
+    in {
+      default = pkgs.mkShell {
+        buildInputs = [
+          pkgs.php84
+          pkgs.php84.packages.composer
+          pkgs.nodejs
+        ];
+      };
     });
   };
 }
