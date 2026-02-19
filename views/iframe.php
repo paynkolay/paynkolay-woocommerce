@@ -31,7 +31,7 @@ function paynkolay_format_amount( $total ) {
 
 date_default_timezone_set( 'Europe/Istanbul' );
 
-$options = get_option( 'woocommerce_paynkolay_settings' );
+$options = get_option( 'woocommerce_paynkolay_settings', array() );
 $order   = wc_get_order( $order_id );
 
 if ( isset( $options['testmode'] ) && 'yes' === $options['testmode'] ) {
@@ -40,8 +40,8 @@ if ( isset( $options['testmode'] ) && 'yes' === $options['testmode'] ) {
 	$base_url = 'https://paynkolay.nkolayislem.com.tr/Vpos';
 }
 
-$sx                  = $options['token'];
-$merchant_secret_key = $options['merchant_secret_key'];
+$sx                  = isset( $options['token'] ) ? $options['token'] : '';
+$merchant_secret_key = isset( $options['merchant_secret_key'] ) ? $options['merchant_secret_key'] : '';
 $amount              = paynkolay_format_amount( $order->get_total() );
 $success_url         = add_query_arg( 'wc-api', 'paynkolay', $order->get_checkout_order_received_url() );
 $fail_url            = add_query_arg( 'redirect_from', 'paynkolay', $order->get_checkout_payment_url() );
