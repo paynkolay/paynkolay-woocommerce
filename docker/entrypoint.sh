@@ -30,11 +30,11 @@ if ! wp core is-installed --allow-root 2>/dev/null; then
     --skip-email \
     --allow-root
 
-  mkdir -p /var/www/html/wp-content/uploads/wc-logs
-  chown www-data:www-data /var/www/html/wp-content/uploads/wc-logs
-
   echo "Installing WooCommerce..."
   wp plugin install woocommerce --activate --allow-root
+
+  mkdir -p /var/www/html/wp-content/uploads/wc-logs
+  chown -R www-data:www-data /var/www/html/wp-content/uploads
 
   echo "Activating PayNKolay..."
   wp plugin activate paynkolay-woocommerce --allow-root
