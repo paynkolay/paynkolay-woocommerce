@@ -1,12 +1,12 @@
 {
-  "phpVersion": null,
-  "core": null,
-  "plugins": [
-    "https://downloads.wordpress.org/plugin/woocommerce.zip",
-    "."
-  ],
-  "config": {
-    "WP_DEBUG": true,
-    "SCRIPT_DEBUG": true
-  }
+	"phpVersion": null,
+	"core": null,
+	"plugins": [
+		"https://downloads.wordpress.org/plugin/woocommerce.zip",
+		"."
+	],
+	"config": {
+		"WP_DEBUG": true,
+		"SCRIPT_DEBUG": true
+	}
 }
