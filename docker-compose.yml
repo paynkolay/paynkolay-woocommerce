@@ -1,6 +1,8 @@
 services:
   wordpress:
-    image: wordpress:php8.4
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     ports:
       - "8888:80"
     environment:
@@ -21,30 +23,3 @@ services:
       MYSQL_USER: wordpress
       MYSQL_PASSWORD: wordpress
       MYSQL_ROOT_PASSWORD: root
-
-  setup:
-    image: wordpress:cli
-    depends_on:
-      - wordpress
-    volumes:
-      - .:/var/www/html/wp-content/plugins/paynkolay-woocommerce
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-    command: >
-      sh -c '
-        echo "Waiting for WordPress..."
-        sleep 10
-        wp core install --url=http://localhost:8888 --title="PayNKolay Test" --admin_user=admin --admin_password=password --admin_email=test@test.com --skip-email
-        wp plugin install woocommerce --activate
-        wp plugin activate paynkolay-woocommerce
-        wp option update woocommerce_currency TRY
-        wp option update woocommerce_store_postcode 34000
-        wp option update woocommerce_default_country TR
-        wp wc product create --name="Test Ürün 1" --regular_price=10 --status=publish --user=admin
-        wp wc product create --name="Test Ürün 2" --regular_price=250 --status=publish --user=admin
-        wp wc product create --name="Test Ürün 3" --regular_price=49.90 --status=publish --user=admin
-        echo "Done! http://localhost:8888"
-      '
