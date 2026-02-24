@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Verify Nix installation
+        run: nix --version
+
+      - name: Build plugin zip
+        run: |
+          nix develop --command bash -c "npm ci && npm run build && npm run plugin-zip"
+
+      - name: Rename zip with version
+        run: mv paynkolay-woocommerce.zip paynkolay-woocommerce-${{ github.ref_name }}.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: paynkolay-woocommerce-${{ github.ref_name }}.zip
+          generate_release_notes: true
