@@ -43,3 +43,7 @@ tsconfig.tsbuildinfo
 
 # Unit tests
 tmp/
+
+result
+result-*
+.direnv/
