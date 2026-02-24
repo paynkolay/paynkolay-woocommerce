@@ -127,9 +127,26 @@ function paynkolay_failed_redirect() {
 	$success       = isset( $_GET['success'] ) ? sanitize_text_field( wp_unslash( $_GET['success'] ) ) : null;
 
 	if ( 'paynkolay' === $redirect_from ) {
+		// DEBUG: Log everything PayNKolay sends back on failure.
+		error_log( '[PayNKolay] Failed redirect received.' );
+		error_log( '[PayNKolay] GET params: ' . wp_json_encode( $_GET ) );
+		error_log( '[PayNKolay] POST params: ' . wp_json_encode( $_POST ) );
+
+		$response_data = isset( $_POST['RESPONSE_DATA'] ) ? sanitize_text_field( wp_unslash( $_POST['RESPONSE_DATA'] ) ) : '';
+		$response_code = isset( $_POST['RESPONSE_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['RESPONSE_CODE'] ) ) : '';
+		$error_code    = isset( $_POST['ERROR_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['ERROR_CODE'] ) ) : '';
+
+		error_log( '[PayNKolay] RESPONSE_CODE: ' . $response_code . ' | ERROR_CODE: ' . $error_code . ' | RESPONSE_DATA: ' . $response_data );
+
+		$reason      = $response_data ? $response_data : null;
 		$current_url = ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . sanitize_text_field( wp_unslash( $_SERVER['HTTP_HOST'] ?? '' ) ) . sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ?? '' ) );
 		$current_url = remove_query_arg( 'redirect_from', $current_url );
 		$current_url = add_query_arg( 'success', 'false', $current_url );
+
+		if ( $reason ) {
+			$current_url = add_query_arg( 'Reason', base64_encode( $reason ), $current_url );
+		}
+
 		wp_redirect( $current_url );
 		exit;
 	}
