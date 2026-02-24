@@ -220,21 +220,26 @@ class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 		$hash_created = base64_encode( pack( 'H*', sha1( $hash_str ) ) );
 
 		global $woocommerce;
-		global $wpdb;
 
-		$postmeta = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT * FROM {$wpdb->prefix}postmeta WHERE meta_key = 'client_reference_code' AND meta_value = %s",
-				$client_ref_code
+		$orders = wc_get_orders(
+			array(
+				'meta_key'   => 'client_reference_code',
+				'meta_value' => $client_ref_code,
+				'limit'      => 1,
 			)
 		);
 
-		if ( ! isset( $postmeta->post_id ) ) {
+		if ( empty( $orders ) ) {
 			wp_redirect( wc_get_checkout_url() . '?success=false&Reason=' . base64_encode( $response_data ) );
 			exit;
 		}
 
-		$order = wc_get_order( $postmeta->post_id );
+		$order = $orders[0];
+
+		if ( ! $order ) {
+			wp_redirect( wc_get_checkout_url() . '?success=false&Reason=' . base64_encode( 'Sipariş bulunamadı.' ) );
+			exit;
+		}
 
 		if ( $hash_data !== $hash_created ) {
 			wp_redirect( $order->get_checkout_payment_url() . '&success=false&Reason=' . base64_encode( 'HASH uyuşmazlığı! Üye işyeri iletişime geçiniz.' ) );
