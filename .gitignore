@@ -47,3 +47,5 @@ tmp/
 result
 result-*
 .direnv/
+
+settings.local.json
