@@ -4,6 +4,13 @@
 	"description": "PayNKolay payment gateway for WooCommerce",
 	"author": "PayNKolay",
 	"license": "MIT",
+	"files": [
+		"woocommerce-gateway-paynkolay.php",
+		"assets/",
+		"includes/",
+		"languages/",
+		"views/"
+	],
 	"scripts": {
 		"build": "wp-scripts build",
 		"start": "wp-scripts start",
