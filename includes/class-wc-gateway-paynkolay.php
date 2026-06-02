@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * PayNKolay Gateway.
  *
  * @class   WC_Gateway_Paynkolay
- * @version 1.1.1
+ * @version 1.1.2
  */
 class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 

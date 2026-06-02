@@ -3,7 +3,7 @@
  * Plugin Name: PayNKolay for WooCommerce
  * Plugin URI: https://paynkolay.com.tr
  * Description: PayNKolay sanal POS ile WooCommerce ödeme entegrasyonu.
- * Version: 1.1.1
+ * Version: 1.1.2
  *
  * Author: PayNKolay
  * Author URI: https://paynkolay.com.tr
