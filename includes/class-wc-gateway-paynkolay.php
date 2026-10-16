@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * PayNKolay Gateway.
  *
  * @class   WC_Gateway_Paynkolay
- * @version 1.1.2
+ * @version 1.2.0
  */
 class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 
@@ -60,6 +60,21 @@ class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 	 * @var string
 	 */
 	public $merchant_secret_key;
+
+	/**
+	 * Order meta key holding every payment attempt issued for the order, keyed by clientRefCode.
+	 */
+	const ATTEMPTS_META_KEY = '_paynkolay_payment_attempts';
+
+	/**
+	 * Maximum number of payment attempts remembered per order.
+	 */
+	const MAX_ATTEMPTS = 50;
+
+	/**
+	 * The only currency the payment form charges in (no currency field is sent, gateway default).
+	 */
+	const CURRENCY = 'TRY';
 
 	/**
 	 * Constructor for the gateway.
@@ -109,7 +124,7 @@ class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 				'title'   => __( 'Aktif/Pasif', 'woocommerce-gateway-paynkolay' ),
 				'type'    => 'checkbox',
 				'label'   => __( 'Ödeme yöntemini aktifleştir.', 'woocommerce-gateway-paynkolay' ),
-				'default' => 'yes',
+				'default' => 'no',
 			),
 			'title'       => array(
 				'title'       => __( 'Başlık', 'woocommerce-gateway-paynkolay' ),
@@ -189,82 +204,318 @@ class WC_Gateway_Paynkolay extends WC_Payment_Gateway {
 	public function receipt_page( $order_id ) {
 		$order = wc_get_order( $order_id );
 
+		if ( ! $order ) {
+			return;
+		}
+
+		// The payment form does not send a currency, so the gateway always charges TRY.
+		// Refuse to start a payment for an order in any other currency.
+		if ( self::CURRENCY !== $order->get_currency() ) {
+			echo '<p>' . esc_html__( 'Bu ödeme yöntemi yalnızca Türk Lirası (TRY) ile ödemeyi destekler.', 'woocommerce-gateway-paynkolay' ) . '</p>';
+			return;
+		}
+
 		require_once plugin_dir_path( __DIR__ ) . 'views/iframe.php';
 	}
 
 	/**
-	 * Handle the webhook callback from PayNKolay.
+	 * Remember one payment attempt (clientRefCode + expected amount + currency) on the order.
+	 *
+	 * The reference is regenerated on every payment page view, so every issued reference is kept
+	 * (most recent last) and any of them can be resolved by the callback.
+	 *
+	 * @param WC_Order $order           Order object.
+	 * @param string   $client_ref_code Reference sent to the gateway.
+	 * @param string   $amount          Amount sent to the gateway, e.g. "870.00".
 	 */
-	public function webhook() {
-		if ( 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
-			wp_redirect( wc_get_checkout_url() . '?success=false&Reason=' . base64_encode( 'Geçersiz istek yöntemi.' ) );
-			exit;
+	public static function store_payment_attempt( $order, $client_ref_code, $amount ) {
+		$attempts = $order->get_meta( self::ATTEMPTS_META_KEY, true );
+		if ( ! is_array( $attempts ) ) {
+			$attempts = array();
 		}
 
-		$merchant_secret_key = get_option( 'woocommerce_paynkolay_settings' )['merchant_secret_key'];
+		$attempts[ $client_ref_code ] = array(
+			'amount_cents' => self::amount_to_cents( $amount ),
+			'currency'     => self::CURRENCY,
+			'created'      => time(),
+		);
 
-		$reference_code      = isset( $_POST['REFERENCE_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['REFERENCE_CODE'] ) ) : '';
-		$response_code       = isset( $_POST['RESPONSE_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['RESPONSE_CODE'] ) ) : '';
-		$response_data       = isset( $_POST['RESPONSE_DATA'] ) ? sanitize_text_field( wp_unslash( $_POST['RESPONSE_DATA'] ) ) : '';
-		$use_3d              = isset( $_POST['USE_3D'] ) ? sanitize_text_field( wp_unslash( $_POST['USE_3D'] ) ) : '';
-		$merchant_no         = isset( $_POST['MERCHANT_NO'] ) ? sanitize_text_field( wp_unslash( $_POST['MERCHANT_NO'] ) ) : '';
-		$auth_code           = isset( $_POST['AUTH_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['AUTH_CODE'] ) ) : '';
-		$client_ref_code     = isset( $_POST['CLIENT_REFERENCE_CODE'] ) ? sanitize_text_field( wp_unslash( $_POST['CLIENT_REFERENCE_CODE'] ) ) : '';
-		$auth_amount         = isset( $_POST['AUTHORIZATION_AMOUNT'] ) ? sanitize_text_field( wp_unslash( $_POST['AUTHORIZATION_AMOUNT'] ) ) : '';
-		$installment         = isset( $_POST['INSTALLMENT'] ) ? sanitize_text_field( wp_unslash( $_POST['INSTALLMENT'] ) ) : '';
-		$rnd                 = isset( $_POST['RND'] ) ? sanitize_text_field( wp_unslash( $_POST['RND'] ) ) : '';
-		$hash_data           = isset( $_POST['hashData'] ) ? sanitize_text_field( wp_unslash( $_POST['hashData'] ) ) : '';
+		// Keep the meta bounded; old attempts beyond the limit can no longer be resolved.
+		if ( count( $attempts ) > self::MAX_ATTEMPTS ) {
+			$attempts = array_slice( $attempts, -self::MAX_ATTEMPTS, null, true );
+		}
 
-		// Verify hash integrity.
-		$hash_str     = $merchant_no . $reference_code . $auth_code . $response_code . $use_3d . $rnd . $installment . $auth_amount . $merchant_secret_key;
-		$hash_created = base64_encode( pack( 'H*', sha1( $hash_str ) ) );
+		$order->update_meta_data( self::ATTEMPTS_META_KEY, $attempts );
+		// Kept for backward compatibility with code reading the 1.1.x meta key.
+		$order->update_meta_data( 'client_reference_code', $client_ref_code );
+		$order->save();
+	}
 
-		global $woocommerce;
+	/**
+	 * Convert a decimal amount string ("870", "870.5", "870.00") to integer minor units.
+	 *
+	 * @param mixed $value Amount.
+	 * @return int|null Amount in cents, or null when the value is not a plain non-negative decimal.
+	 */
+	public static function amount_to_cents( $value ) {
+		$value = trim( (string) $value );
+		if ( ! preg_match( '/^(\d{1,12})(?:\.(\d{1,2}))?$/', $value, $m ) ) {
+			return null;
+		}
+		$fraction = isset( $m[2] ) ? str_pad( $m[2], 2, '0' ) : '00';
+		return (int) $m[1] * 100 + (int) $fraction;
+	}
 
-		$orders = wc_get_orders(
+	/**
+	 * Response hash v1 (hashData): base64(sha1(fields concatenated without separator + secret)).
+	 *
+	 * @param array  $f      Callback fields.
+	 * @param string $secret Merchant secret key.
+	 * @return string
+	 */
+	public static function response_hash_v1( $f, $secret ) {
+		$str = $f['MERCHANT_NO'] . $f['REFERENCE_CODE'] . $f['AUTH_CODE'] . $f['RESPONSE_CODE'] . $f['USE_3D'] . $f['RND'] . $f['INSTALLMENT'] . $f['AUTHORIZATION_AMOUNT'] . $secret;
+		return base64_encode( sha1( $str, true ) );
+	}
+
+	/**
+	 * Response hash v2 (hashDataV2): base64(sha512(fields joined with "|" + "|" + secret)).
+	 *
+	 * @param array  $f      Callback fields.
+	 * @param string $secret Merchant secret key.
+	 * @return string
+	 */
+	public static function response_hash_v2( $f, $secret ) {
+		$str = implode(
+			'|',
 			array(
-				'meta_key'   => 'client_reference_code',
-				'meta_value' => $client_ref_code,
-				'limit'      => 1,
+				$f['MERCHANT_NO'],
+				$f['REFERENCE_CODE'],
+				$f['AUTH_CODE'],
+				$f['RESPONSE_CODE'],
+				$f['USE_3D'],
+				$f['RND'],
+				$f['INSTALLMENT'],
+				$f['AUTHORIZATION_AMOUNT'],
+				$f['CURRENCY_CODE'],
+				$secret,
+			)
+		);
+		return base64_encode( hash( 'sha512', $str, true ) );
+	}
+
+	/**
+	 * Verify the callback signature. hashDataV2 is preferred; when it is present a mismatch is
+	 * final (no fallback to v1). v1 is only used when the gateway sent no v2 field.
+	 *
+	 * @param array  $f      Callback fields (must include hashData / hashDataV2 keys).
+	 * @param string $secret Merchant secret key.
+	 * @return string|false "v2" or "v1" for a valid signature, false otherwise.
+	 */
+	public static function verify_response_hash( $f, $secret ) {
+		if ( '' === trim( (string) $secret ) ) {
+			return false;
+		}
+
+		if ( '' !== $f['hashDataV2'] ) {
+			return hash_equals( self::response_hash_v2( $f, $secret ), $f['hashDataV2'] ) ? 'v2' : false;
+		}
+
+		if ( '' !== $f['hashData'] ) {
+			return hash_equals( self::response_hash_v1( $f, $secret ), $f['hashData'] ) ? 'v1' : false;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Official isPaymentSuccessful rule: RESPONSE_CODE is "2" and AUTH_CODE is not "", "0" or "00".
+	 *
+	 * @param array $f Callback fields.
+	 * @return bool
+	 */
+	public static function is_payment_successful( $f ) {
+		$auth_code = trim( $f['AUTH_CODE'] );
+		return '2' === trim( $f['RESPONSE_CODE'] ) && ! in_array( $auth_code, array( '', '0', '00' ), true );
+	}
+
+	/**
+	 * Whether a gateway CURRENCY_CODE value denotes TRY (alpha or numeric ISO 4217).
+	 *
+	 * @param string $code Currency code from the callback.
+	 * @return bool
+	 */
+	public static function is_try_currency_code( $code ) {
+		return in_array( strtoupper( trim( $code ) ), array( 'TRY', 'TL', '949' ), true );
+	}
+
+	/**
+	 * Read one callback field as a raw string (no sanitizing, so the hash is computed over the
+	 * exact bytes the gateway signed). Non-string values become "".
+	 *
+	 * @param string $key POST key.
+	 * @return string
+	 */
+	private static function post_field( $key ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Signed gateway callback, verified below.
+		return ( isset( $_POST[ $key ] ) && is_string( $_POST[ $key ] ) ) ? (string) wp_unslash( $_POST[ $key ] ) : '';
+	}
+
+	/**
+	 * Redirect back to the payment page (or checkout) with a fixed failure message and stop.
+	 *
+	 * @param WC_Order|null $order   Order, when one was resolved.
+	 * @param string        $message Fixed message, never request data.
+	 */
+	private function fail_redirect( $order, $message ) {
+		$url = $order ? $order->get_checkout_payment_url() : wc_get_checkout_url();
+		$url = add_query_arg(
+			array(
+				'success' => 'false',
+				'Reason'  => base64_encode( $message ),
+			),
+			$url
+		);
+		wp_safe_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * Handle the success callback from PayNKolay.
+	 *
+	 * The callback is a browser POST, so every field is customer-controllable. Only signed
+	 * fields are trusted; CLIENT_REFERENCE_CODE is unsigned and used purely as a lookup key into
+	 * the attempts stored server-side when the payment form was built.
+	 */
+	public function webhook() {
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || 'POST' !== $_SERVER['REQUEST_METHOD'] ) {
+			$this->fail_redirect( null, __( 'Geçersiz istek yöntemi.', 'woocommerce-gateway-paynkolay' ) );
+		}
+
+		$generic_error = __( 'Ödeme doğrulanamadı. Lütfen tekrar deneyin veya mağaza ile iletişime geçin.', 'woocommerce-gateway-paynkolay' );
+
+		$fields = array();
+		foreach ( array( 'MERCHANT_NO', 'REFERENCE_CODE', 'AUTH_CODE', 'RESPONSE_CODE', 'USE_3D', 'RND', 'INSTALLMENT', 'AUTHORIZATION_AMOUNT', 'CURRENCY_CODE', 'CLIENT_REFERENCE_CODE', 'hashData' ) as $key ) {
+			$fields[ $key ] = self::post_field( $key );
+		}
+		// Accept both spellings of the v2 field.
+		$fields['hashDataV2'] = self::post_field( 'hashDataV2' );
+		if ( '' === $fields['hashDataV2'] ) {
+			$fields['hashDataV2'] = self::post_field( 'hashDatav2' );
+		}
+
+		// 1. Signature. Rejected when the secret is empty or the hash does not match; no order is touched.
+		$hash_version = self::verify_response_hash( $fields, $this->merchant_secret_key );
+		if ( false === $hash_version ) {
+			$this->fail_redirect( null, $generic_error );
+		}
+
+		// 2. Resolve the order from the reference this plugin issued: "WooCommerce|<order id>|Woo|<uniqid>".
+		$client_ref_code = $fields['CLIENT_REFERENCE_CODE'];
+		$ref_parts       = explode( '|', $client_ref_code );
+		$order           = ( 4 === count( $ref_parts ) && 'WooCommerce' === $ref_parts[0] && ctype_digit( $ref_parts[1] ) )
+			? wc_get_order( (int) $ref_parts[1] )
+			: false;
+
+		if ( ! $order || $this->id !== $order->get_payment_method() ) {
+			$this->fail_redirect( null, $generic_error );
+		}
+
+		$attempts = $order->get_meta( self::ATTEMPTS_META_KEY, true );
+		if ( is_array( $attempts ) && ! empty( $attempts ) ) {
+			if ( ! isset( $attempts[ $client_ref_code ] ) ) {
+				$this->fail_redirect( $order, $generic_error );
+			}
+			$attempt = $attempts[ $client_ref_code ];
+		} elseif ( '' !== $client_ref_code && $order->get_meta( 'client_reference_code', true ) === $client_ref_code ) {
+			// Payment page rendered by 1.1.x before the upgrade: no stored attempt, use the order total.
+			$attempt = array(
+				'amount_cents' => self::amount_to_cents( wc_format_decimal( $order->get_total(), 2 ) ),
+				'currency'     => self::CURRENCY,
+			);
+		} else {
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		$reference_code = trim( $fields['REFERENCE_CODE'] );
+
+		// Idempotent replay of the callback that already paid this order.
+		if ( ! $order->needs_payment() ) {
+			if ( '' !== $reference_code && $order->get_transaction_id() === $reference_code && $order->is_paid() ) {
+				wp_safe_redirect( $order->get_checkout_order_received_url() );
+				exit;
+			}
+			$this->fail_redirect( null, $generic_error );
+		}
+
+		// 3. Gateway result.
+		if ( ! self::is_payment_successful( $fields ) ) {
+			$this->fail_redirect( $order, __( 'Ödeme işlemi başarısız oldu. Lütfen tekrar deneyin.', 'woocommerce-gateway-paynkolay' ) );
+		}
+
+		if ( '' === $reference_code ) {
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		// 4. Amount: signed AUTHORIZATION_AMOUNT must cover the amount sent and the current order total.
+		$auth_cents     = self::amount_to_cents( $fields['AUTHORIZATION_AMOUNT'] );
+		$expected_cents = isset( $attempt['amount_cents'] ) ? $attempt['amount_cents'] : null;
+		$order_cents    = self::amount_to_cents( wc_format_decimal( $order->get_total(), 2 ) );
+		if ( null === $auth_cents || null === $expected_cents || null === $order_cents || $auth_cents < max( $expected_cents, $order_cents ) ) {
+			$order->add_order_note( __( 'PayNKolay: ödeme tutarı sipariş tutarıyla uyuşmadığı için callback reddedildi.', 'woocommerce-gateway-paynkolay' ) );
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		// 5. Currency: the form only ever charges TRY.
+		$currency_ok = self::CURRENCY === $order->get_currency()
+			&& ( ! isset( $attempt['currency'] ) || self::CURRENCY === $attempt['currency'] );
+		if ( 'v2' === $hash_version && ! self::is_try_currency_code( $fields['CURRENCY_CODE'] ) ) {
+			$currency_ok = false;
+		}
+		if ( ! $currency_ok ) {
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		// 6. REFERENCE_CODE is single-use across all orders. The row lock (unique option_name,
+		// INSERT IGNORE) stops two concurrent callbacks with the same reference from both passing.
+		global $wpdb;
+		$lock_name = 'paynkolay_ref_lock_' . md5( $reference_code );
+		$locked    = $wpdb->query( $wpdb->prepare( "INSERT IGNORE INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s, %s, 'no')", $lock_name, (string) time() ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+		if ( 1 !== $locked ) {
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		$used = wc_get_orders(
+			array(
+				'transaction_id' => $reference_code,
+				'limit'          => 1,
+				'return'         => 'ids',
+			)
+		);
+		if ( ! empty( $used ) ) {
+			delete_option( $lock_name );
+			$this->fail_redirect( $order, $generic_error );
+		}
+
+		$order->payment_complete( $reference_code );
+		// From here on the transaction id on the order is the single-use record.
+		delete_option( $lock_name );
+		$order->add_order_note(
+			sprintf(
+				/* translators: 1: gateway reference code, 2: authorized amount, 3: hash version, 4: test mode marker */
+				__( 'PayNKolay ödemesi onaylandı. Referans: %1$s, tutar: %2$s, hash: %3$s%4$s', 'woocommerce-gateway-paynkolay' ),
+				$reference_code,
+				$fields['AUTHORIZATION_AMOUNT'],
+				$hash_version,
+				'yes' === $this->testmode ? ' (TEST MODU)' : ''
 			)
 		);
 
-		if ( empty( $orders ) ) {
-			wp_redirect( wc_get_checkout_url() . '?success=false&Reason=' . base64_encode( $response_data ) );
-			exit;
+		if ( function_exists( 'WC' ) && WC()->cart ) {
+			WC()->cart->empty_cart();
 		}
 
-		$order = $orders[0];
-
-		if ( ! $order ) {
-			wp_redirect( wc_get_checkout_url() . '?success=false&Reason=' . base64_encode( 'Sipariş bulunamadı.' ) );
-			exit;
-		}
-
-		if ( $hash_data !== $hash_created ) {
-			wp_redirect( $order->get_checkout_payment_url() . '&success=false&Reason=' . base64_encode( 'HASH uyuşmazlığı! Üye işyeri iletişime geçiniz.' ) );
-			exit;
-		}
-
-		// Prevent duplicate transactions.
-		if ( '0' === $response_code && false !== strpos( $response_data, 'Bu referans numarası için daha önce işlem yapılmıştır' ) ) {
-			wp_die( 'Transaction already processed for this reference number.' );
-		}
-
-		if ( '2' !== $response_code ) {
-			wp_redirect( $order->get_checkout_payment_url() . '&success=false&Reason=' . base64_encode( $response_data ) );
-			exit;
-		}
-
-		if ( '2' === $response_code && $auth_code ) {
-			$order->payment_complete();
-			$order->update_status( 'processing' );
-			$woocommerce->cart->empty_cart();
-			wp_redirect( $order->get_checkout_order_received_url() );
-			exit;
-		}
-
-		wp_redirect( $order->get_checkout_payment_url() . '&success=false&Reason=' . base64_encode( 'Üye işyerinin NKolay ile iletişime geçmesi gerekmektedir. (AutoComplete açılmalıdır.)' ) );
+		wp_safe_redirect( $order->get_checkout_order_received_url() );
 		exit;
 	}
 }

@@ -3,7 +3,7 @@
  * Plugin Name: PayNKolay for WooCommerce
  * Plugin URI: https://paynkolay.com.tr
  * Description: PayNKolay sanal POS ile WooCommerce ödeme entegrasyonu.
- * Version: 1.1.2
+ * Version: 1.2.0
  *
  * Author: PayNKolay
  * Author URI: https://paynkolay.com.tr
@@ -164,9 +164,32 @@ function paynkolay_failed_redirect() {
 	if ( 'false' === $success ) {
 		$reason = isset( $_GET['Reason'] ) ? sanitize_text_field( wp_unslash( $_GET['Reason'] ) ) : null;
 		if ( $reason ) {
-			wc_add_notice( base64_decode( $reason ), 'error' );
+			// The Reason parameter is attacker-controllable: escape after decoding.
+			wc_add_notice( esc_html( (string) base64_decode( $reason ) ), 'error' );
 		} else {
 			wc_add_notice( __( 'Ödeme işlemi başarısız oldu. Lütfen tekrar deneyin.', 'woocommerce-gateway-paynkolay' ), 'error' );
 		}
 	}
+}
+
+add_action( 'admin_notices', 'paynkolay_test_mode_notice' );
+
+/**
+ * Warn shop managers while the gateway is enabled in test mode: in test mode orders can be
+ * paid with public test cards and the public test secret.
+ */
+function paynkolay_test_mode_notice() {
+	if ( ! current_user_can( 'manage_woocommerce' ) ) {
+		return;
+	}
+
+	$options = get_option( 'woocommerce_paynkolay_settings', array() );
+	if ( ! is_array( $options ) || ! isset( $options['enabled'] ) || 'yes' !== $options['enabled'] ) {
+		return;
+	}
+	if ( isset( $options['testmode'] ) && 'no' === $options['testmode'] ) {
+		return;
+	}
+
+	echo '<div class="notice notice-warning"><p>' . esc_html__( 'PayNKolay ödeme yöntemi TEST MODUNDA aktif. Test modunda verilen siparişler gerçek tahsilat içermez; canlı mağazada test modunu kapatıp canlı Token (SX) ve Merchant Secret Key bilgilerinizi girin.', 'woocommerce-gateway-paynkolay' ) . '</p></div>';
 }

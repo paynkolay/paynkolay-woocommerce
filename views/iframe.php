@@ -50,8 +50,8 @@ $rnd                 = date( 'd.m.Y H:i:s' );
 $detail              = 'false';
 $transaction_type    = 'sales';
 
-$order->update_meta_data( 'client_reference_code', $client_ref_code );
-$order->save();
+// Remember this attempt server-side (reference, expected amount, currency) for the callback.
+WC_Gateway_Paynkolay::store_payment_attempt( $order, $client_ref_code, $amount );
 
 $hash_str  = $sx . $client_ref_code . $amount . $success_url . $fail_url . $rnd . $merchant_secret_key;
 $hash_data = base64_encode( pack( 'H*', sha1( $hash_str ) ) );
